@@ -17,9 +17,9 @@ type HTTPResponseStatCollector interface {
 type statsWriter struct {
 	Writer    http.ResponseWriter
 	StartTime time.Time
+	endTime   time.Time
 	status    int
 	size      int
-	latency   time.Duration
 }
 
 // Header returns the header map that will be sent by
@@ -43,7 +43,11 @@ func (l *statsWriter) Write(b []byte) (int, error) {
 	}
 	size, err := l.Writer.Write(b)
 	l.size += size
-	l.latency = time.Now().Sub(l.StartTime)
+	// add end time for each chunk of Write operation
+	if l.endTime.IsZero() {
+		l.endTime = l.StartTime
+	}
+	l.endTime.Add(time.Now().Sub(l.endTime))
 	return size, err
 }
 
@@ -72,5 +76,5 @@ func (l *statsWriter) Status() int {
 
 // Latency provides response time.
 func (l *statsWriter) Latency() time.Duration {
-	return l.latency
+	return l.endTime.Sub(l.StartTime)
 }
