@@ -26,6 +26,7 @@ Installation
 HTTP middleware provided to collect stats. Currently it supports [alice](https://github.com/justinas/alice) and Negroni(https://github.com/codegangsta/negroni) compatible middlewares. However, its very easy to create your own middleware function for your framework.(Checkout `middleware.go`)
  
 1. Add HttpStats middleware in your HTTP app
+
 Following example is using 'alice' middleware chaining. Checkout `/example` for more details.
 ```
 		func middlewares() alice.Chain {
@@ -37,6 +38,7 @@ Following example is using 'alice' middleware chaining. Checkout `/example` for 
 		return alice.New(s.HTTPStatsHandler)
 		}
 ```
+
 2. Serve metrics on separate HTTP server. 
 ``` 
 		stats.ServeMetrics(5555, "/metrics") 
