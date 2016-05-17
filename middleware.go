@@ -3,6 +3,7 @@ package stats
 import (
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/supershal/stats/metrics"
@@ -10,17 +11,17 @@ import (
 
 // HTTPStats to provide global tags to each metrics and configure custom request and response stats functions.
 type HTTPStats struct {
-	globalTags      map[string]string
-	logRequestStat  HTTPRequestStatFunc
-	logResponseStat HTTPResponseStatFunc
+	GlobalTags      map[string]string
+	LogRequestStat  HTTPRequestStatFunc
+	LogResponseStat HTTPResponseStatFunc
 }
 
 // NewHTTPStats provides new instance of HTTPStats
-func NewHTTPStats(tags map[string]string, reqFunc HTTPRequestStatFunc, resFunc HTTPResponseStatFunc) *HTTPStats {
+func NewHTTPStats(tags map[string]string) *HTTPStats {
 	return &HTTPStats{
-		globalTags:      tags,
-		logRequestStat:  reqFunc,
-		logResponseStat: resFunc,
+		GlobalTags:      tags,
+		LogRequestStat:  makeHttpRequestStat(),
+		LogResponseStat: makeHttpResponseStat(),
 	}
 }
 
@@ -28,49 +29,74 @@ func NewHTTPStats(tags map[string]string, reqFunc HTTPRequestStatFunc, resFunc H
 // An application can implement this function to provide custom implementation of request metrics collection.
 type HTTPRequestStatFunc func(r http.Request, tags map[string]string)
 
-// httpRequestStat implements HTTPRequestStatFunc. it counts number of requests by Method across all URI Paths.
+// makeHttpRequestStat implements a func that returns HTTPRequestStatFunc. it counts number of requests by Method across all URI Paths.
 // If app needs additional tags or per URI stats, the app can implement its own HTTPRequestStatFunc function.
-func httpRequestStat(r http.Request, tags map[string]string) {
-	field := r.Method
-	metrics.NewCounter("http_request", tags, field).Add()
+func makeHttpRequestStat() HTTPRequestStatFunc {
+	return func(r http.Request, tags map[string]string) {
+		field := r.Method
+		metrics.NewCounter("http_request", tags, field).Add()
+	}
 }
 
 // HTTPResponseStatFunc function type to collect HTTP response metrics.
 // An application can implement this function to provide custom implementation of response metrics collection.
 type HTTPResponseStatFunc func(w http.ResponseWriter, tags map[string]string)
 
-// httpResponseStat implements HTTPResponseStatFunc. It collects response count by rsponse code, response size and latency.
+// makeHttpResponseStat implements a func that returns HTTPResponseStatFunc. It collects response count by rsponse code, response size and latency.
 // If app needs additional tags or per response stats, the app can implement its own HTTPResponseStatFunc function.
-func httpResponseStat(w http.ResponseWriter, tags map[string]string) {
-	var rsc HTTPResponseStatCollector
-	var ok bool
-	if rsc, ok = w.(HTTPResponseStatCollector); !ok {
-		return
-	}
-	// collect status code counts
-	metrics.NewCounter("http_response", tags, strconv.Itoa(rsc.Status())).Add()
-	metrics.NewCounter("http_response", tags, "total").Add()
-
-	// collect response size guauge
-	metrics.NewGauge("http_response", tags, "size").Set(int64(rsc.Size()))
-
-	// collect response latency histogram
+func makeHttpResponseStat() HTTPResponseStatFunc {
 	// TODO: make min/max latency configurable
-	var maxLat int64 = 10000
-	h := metrics.NewHistogram("http_response", tags, "latency", 0, maxLat)
-	lat := rsc.Latency().Nanoseconds() / 1000000
-	h.RecordValue(lat)
+	var latencies = make(map[string]*metrics.Histogram)
+	var lm sync.Mutex
+	// := metrics.NewHistogram("http_response", globalTags, "latency", 0, 10000)
+
+	return func(w http.ResponseWriter, tags map[string]string) {
+		var rsc HTTPResponseStatCollector
+		var ok bool
+		if rsc, ok = w.(HTTPResponseStatCollector); !ok {
+			return
+		}
+
+		// collect status code counts
+		metrics.NewCounter("http_response", tags, strconv.Itoa(rsc.Status())).Add()
+		metrics.NewCounter("http_response", tags, "total").Add()
+
+		// collect response size guauge
+		metrics.NewGauge("http_response", tags, "size").Set(int64(rsc.Size()))
+
+		// collect response latency histogram
+		lat := rsc.Latency().Nanoseconds() / 1000000
+		series := metrics.MakeSeries("http_response", tags, "latency")
+
+		lm.Lock()
+		if _, ok := latencies[series]; !ok {
+			latencies[series] = metrics.NewHistogram("http_response", tags, "latency", 0, 10000)
+		}
+		lm.Unlock()
+
+		latency := latencies[series]
+		latency.RecordValue(lat)
+	}
 }
 
 // HTTPStatsHandler is a default provided HTTP middleware function to collect global http request and response stats.
 func (s *HTTPStats) HTTPStatsHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// custom response writer
-		rlw := &statsWriter{Writer: w, StartTime: time.Now()}
+		t := time.Now()
+		rlw := &StatsWriter{Writer: w, StartTime: t}
 		next.ServeHTTP(rlw, r)
-		go s.logRequestStat(*r, s.globalTags)
-		go s.logResponseStat(rlw, s.globalTags)
+		go s.LogRequestStat(*r, s.GlobalTags)
+		go s.LogResponseStat(rlw, s.GlobalTags)
 	})
+}
+
+// ServeHTTP is Negroni compatible interface for httpStats middleware
+func (s *HTTPStats) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	rlw := &StatsWriter{Writer: w, StartTime: time.Now()}
+	next(rlw, r)
+	go s.LogRequestStat(*r, s.GlobalTags)
+	go s.LogResponseStat(rlw, s.GlobalTags)
 }
 
 // HTTPMetricsSnapshot returns all colleted metrics in metrics Line protocol format.
@@ -78,15 +104,3 @@ func (s *HTTPStats) HTTPStatsHandler(next http.Handler) http.Handler {
 func HTTPMetricsSnapshotLines() string {
 	return metrics.SnapshotLines()
 }
-
-// // StatsHandler is a genric HTTP middleware function to collect http request and response stats.
-// // If the application implements custom HTTPRequestStatFunc and HTTPResponseStatFunc then
-// // it can use StatsHandler to collect its own custom metrics.
-// func (s *Stats) StatsHandler(next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		// custom response writer
-// 		next.ServeHTTP(w, r)
-// 		go s.logRequestStat(*r, s.globalTags)
-// 		go s.logResponseStat(w, s.globalTags)
-// 	})
-// }

@@ -13,13 +13,15 @@ func TestCounter(t *testing.T) {
 	c := metrics.NewCounter(
 		"foo",
 		map[string]string{
-			"bar": "baz"},
+			"bar": "baz",
+			"qux": "quux",
+		},
 		"value")
 	c.Add()
 	c.AddN(10)
 
 	lines := metrics.SnapshotLines()
-	if v, want := lines, "foo,bar=baz value=11\n"; v != want {
+	if v, want := lines, "foo,bar=baz,qux=quux value=11\n"; v != want {
 		t.Errorf("Counter was %v, but expected %v", v, want)
 	}
 }
@@ -48,7 +50,9 @@ func TestCounterBatchFunc(t *testing.T) {
 	c := metrics.NewCounter(
 		"foo",
 		map[string]string{
-			"bar": "baz"},
+			"bar": "baz",
+			"qux": "quux",
+		},
 		"value")
 
 	var a, b uint64
@@ -80,7 +84,7 @@ func TestCounterBatchFunc(t *testing.T) {
 	)
 
 	lines := metrics.SnapshotLines()
-	if v, want := lines, "foo,bar=baz value=1\n"; !strings.Contains(v, want) {
+	if v, want := lines, "foo,bar=baz,qux=quux value=1\n"; !strings.Contains(v, want) {
 		t.Errorf("Counter was %v, but expected %v", v, want)
 	}
 
@@ -95,7 +99,9 @@ func TestCounterRemove(t *testing.T) {
 	c := metrics.NewCounter(
 		"foo",
 		map[string]string{
-			"bar": "baz"},
+			"bar": "baz",
+			"qux": "quux",
+		},
 		"value")
 
 	c.Add()
@@ -113,12 +119,14 @@ func TestGaugeValue(t *testing.T) {
 	g := metrics.NewGauge(
 		"foo",
 		map[string]string{
-			"bar": "baz"},
+			"bar": "baz",
+			"qux": "quux",
+		},
 		"value")
 	g.Set(-100)
 
 	lines := metrics.SnapshotLines()
-	if v, want := lines, "foo,bar=baz value=-100\n"; v != want {
+	if v, want := lines, "foo,bar=baz,qux=quux value=-100\n"; v != want {
 		t.Errorf("Gauge was %v, but expected %v", v, want)
 	}
 }
@@ -129,7 +137,9 @@ func TestGaugeFunc(t *testing.T) {
 	g := metrics.NewGauge(
 		"foo",
 		map[string]string{
-			"bar": "baz"},
+			"bar": "baz",
+			"qux": "quux",
+		},
 		"value")
 
 	g.SetFunc(func() int64 {
@@ -137,7 +147,7 @@ func TestGaugeFunc(t *testing.T) {
 	})
 
 	lines := metrics.SnapshotLines()
-	if v, want := lines, "foo,bar=baz value=-100\n"; v != want {
+	if v, want := lines, "foo,bar=baz,qux=quux value=-100\n"; v != want {
 		t.Errorf("Gauge was %v, but expected %v", v, want)
 	}
 }
@@ -208,7 +218,9 @@ func TestHistogramRemove(t *testing.T) {
 
 	h := metrics.NewHistogram("foo",
 		map[string]string{
-			"bar": "baz"},
+			"bar": "baz",
+			"qux": "quux",
+		},
 		"latency",
 		1,
 		1000)
@@ -231,7 +243,9 @@ func BenchmarkCounterAdd(b *testing.B) {
 			metrics.NewCounter(
 				"foo",
 				map[string]string{
-					"bar": "baz"},
+					"bar": "baz",
+					"qux": "quux",
+				},
 				"value").Add()
 		}
 	})
@@ -248,7 +262,9 @@ func BenchmarkCounterAddN(b *testing.B) {
 			metrics.NewCounter(
 				"foo",
 				map[string]string{
-					"bar": "baz"},
+					"bar": "baz",
+					"qux": "quux",
+				},
 				"value").AddN(100)
 		}
 	})
@@ -265,7 +281,9 @@ func BenchmarkGaugeSet(b *testing.B) {
 			metrics.NewGauge(
 				"foo",
 				map[string]string{
-					"bar": "baz"},
+					"bar": "baz",
+					"qux": "quux",
+				},
 				"value").Set(100)
 		}
 	})
@@ -275,7 +293,8 @@ func BenchmarkHistogramRecordValue(b *testing.B) {
 	metrics.Reset()
 	h := metrics.NewHistogram("foo",
 		map[string]string{
-			"bar": "baz"},
+			"bar": "baz",
+			"qux": "quux"},
 		"latency",
 		1,
 		1000)

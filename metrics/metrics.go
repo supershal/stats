@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"bytes"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -19,7 +20,7 @@ type counterSeries struct {
 
 // newSeries provides counter name encoded in format of influxdb series: name,tags and field
 func newCounterSeries(name string, tags map[string]string, field string) counterSeries {
-	s := makeSeries(name, tags, field)
+	s := MakeSeries(name, tags, field)
 	return counterSeries{
 		metrics.Counter(s),
 	}
@@ -35,7 +36,7 @@ type Counter struct {
 	counterSeries // counter series.
 }
 
-// NewCounter returns new instance of Counter
+// NewCounter returns new instance of Counter.
 func NewCounter(name string, tags map[string]string, field string) *Counter {
 	return &Counter{
 		Name:          name,
@@ -53,7 +54,7 @@ type gaugeSeries struct {
 
 // newGaugeSeries is new instance of GaugeSeries
 func newGaugeSeries(name string, tags map[string]string, field string) gaugeSeries {
-	s := makeSeries(name, tags, field)
+	s := MakeSeries(name, tags, field)
 	return gaugeSeries{
 		metrics.Gauge(s),
 	}
@@ -89,7 +90,7 @@ type Histogram struct {
 }
 
 func NewHistogram(name string, tags map[string]string, field string, minValue, maxValue int64) *Histogram {
-	s := makeSeries(name, tags, field)
+	s := MakeSeries(name, tags, field)
 	return &Histogram{
 		metrics.NewHistogram(s, minValue, maxValue, 3),
 	}
@@ -133,11 +134,17 @@ func Reset() {
 	metrics.Reset()
 }
 
-//makeSeries creates Series in influxdb format: <measurement>,<tag1>=<key1>,<tagN>=<keyN) <field1>=
-func makeSeries(name string, tags map[string]string, field string) string {
-	s := name + ","
-	for k, v := range tags {
-		s = s + k + "=" + v
+//MakeSeries creates Series in influxdb format: <measurement>,<tag1>=<key1>,<tagN>=<keyN) <field1>=
+func MakeSeries(name string, tags map[string]string, field string) string {
+	var keys []string
+	for k, _ := range tags {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	s := name
+	for _, k := range keys {
+		s = s + "," + k + "=" + tags[k]
 	}
 	return s + " " + field
 }

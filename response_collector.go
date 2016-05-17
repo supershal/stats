@@ -14,7 +14,7 @@ type HTTPResponseStatCollector interface {
 }
 
 // statsWriter implements HTTPResponseStatCollector and collects response code, size and latency.
-type statsWriter struct {
+type StatsWriter struct {
 	Writer    http.ResponseWriter
 	StartTime time.Time
 	endTime   time.Time
@@ -28,7 +28,7 @@ type statsWriter struct {
 // headers were declared as trailers by setting the
 // "Trailer" header before the call to WriteHeader (see example).
 // To suppress implicit response headers, set their value to nil.
-func (l *statsWriter) Header() http.Header {
+func (l *StatsWriter) Header() http.Header {
 	return l.Writer.Header()
 }
 
@@ -37,7 +37,7 @@ func (l *statsWriter) Header() http.Header {
 // before writing the data.  If the Header does not contain a
 // Content-Type line, Write adds a Content-Type set to the result of passing
 // the initial 512 bytes of written data to DetectContentType.
-func (l *statsWriter) Write(b []byte) (int, error) {
+func (l *StatsWriter) Write(b []byte) (int, error) {
 	if l.status == 0 {
 		l.status = http.StatusOK
 	}
@@ -47,7 +47,7 @@ func (l *statsWriter) Write(b []byte) (int, error) {
 	if l.endTime.IsZero() {
 		l.endTime = l.StartTime
 	}
-	l.endTime.Add(time.Now().Sub(l.endTime))
+	l.endTime = l.endTime.Add(time.Now().Sub(l.endTime))
 	return size, err
 }
 
@@ -56,18 +56,18 @@ func (l *statsWriter) Write(b []byte) (int, error) {
 // will trigger an implicit WriteHeader(http.StatusOK).
 // Thus explicit calls to WriteHeader are mainly used to
 // send error codes.
-func (l *statsWriter) WriteHeader(s int) {
+func (l *StatsWriter) WriteHeader(s int) {
 	l.Writer.WriteHeader(s)
 	l.status = s
 }
 
 // Size function return current response size in bytes
-func (l *statsWriter) Size() int {
+func (l *StatsWriter) Size() int {
 	return l.size
 }
 
 // Status function returns current http status code
-func (l *statsWriter) Status() int {
+func (l *StatsWriter) Status() int {
 	if l.status == 0 {
 		return http.StatusOK
 	}
@@ -75,6 +75,6 @@ func (l *statsWriter) Status() int {
 }
 
 // Latency provides response time.
-func (l *statsWriter) Latency() time.Duration {
+func (l *StatsWriter) Latency() time.Duration {
 	return l.endTime.Sub(l.StartTime)
 }
