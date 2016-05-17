@@ -16,18 +16,18 @@ Installation
 2. Make sure you have installed git, hg etc. 
 3. Your workspace is setup with GOPATH. http://golang.org/doc/code.html
 4. Download it:
-::
+	```
     go get github.com/supershal/stats
+    ```
 
 ## GoDoc
 
 ## Usage
-	HTTP middleware provided to collect stats. Currently it supports `alice<>` and `Negroni<>` compatible middlewares. However, its very easy to create your own middleware function for your framework.
-	(Checkout `middleware.go`)
+HTTP middleware provided to collect stats. Currently it supports [alice](https://github.com/justinas/alice) and Negroni(https://github.com/codegangsta/negroni) compatible middlewares. However, its very easy to create your own middleware function for your framework.(Checkout `middleware.go`)
  
-    1. Add HttpStats middleware in your HTTP app
-    Following example is using 'alice' middleware chaining. Checkout `/example` for more details.
-	```
+1. Add HttpStats middleware in your HTTP app
+Following example is using 'alice' middleware chaining. Checkout `/example` for more details.
+```
 		func middlewares() alice.Chain {
 			host, _ := os.Hostname()
 			tags := map[string]string{
@@ -36,12 +36,12 @@ Installation
 		s := stats.NewHTTPStats(tags)
 		return alice.New(s.HTTPStatsHandler)
 		}
-	```
-	2. Serve metrics on separate HTTP server. 
-	``` 
+```
+2. Serve metrics on separate HTTP server. 
+``` 
 		stats.ServeMetrics(5555, "/metrics") 
-	```
-	A metric collector agent (`collectd <https://github.com/collectd/collectd>`_ or `telegraf <https://github.com/influxdata/telegraf>`_) can invoke `localhost:5555/metrics` periodically and send metrics back to TSDB (influxdb or graphite).
+```
+A metric collector agent [collectd](https://github.com/collectd/collectd) or [telegraf](https://github.com/influxdata/telegraf>) can invoke `localhost:5555/metrics` periodically and send metrics back to TSDB (influxdb or graphite).
 
 ## Output Influxdb example
 https://github.com/influxdata/influxdb/blob/master/tsdb/README.md
@@ -60,4 +60,4 @@ http_response,host=localhost,foo=bar latency.P99=40
 http_response,host=localhost,foo=bar latency.P999=50
 ```
 
-Create PR or new `issue <https://github.com/supershal/stats/issues>`_ for any feature request or bugs.
+Create PR or new [issue](https://github.com/supershal/stats/issues) for any feature request or bugs.
