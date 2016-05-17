@@ -21,6 +21,8 @@ Installation
     ```
 
 ## GoDoc
+* [stats](https://godoc.org/github.com/supershal/stats/)
+* [metircs](https://godoc.org/github.com/supershal/stats/metrics)
 
 ## Usage
 HTTP middleware provided to collect stats. Currently it supports [alice](https://github.com/justinas/alice) and Negroni(https://github.com/codegangsta/negroni) compatible middlewares. However, its very easy to create your own middleware function for your framework.(Checkout `middleware.go`)
